@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { database } from "../services/firebase";
+import { useAuth } from "./useAuth";
 
 type QuestionType = {
     id: string;
@@ -10,6 +11,8 @@ type QuestionType = {
     content: string;
     isHighlighted: boolean;
     isAnswered: boolean;
+    likeCount: number;
+    likeId: string | undefined;
 }
 
 type FirebaseQuestion = Record<string, {
@@ -20,12 +23,15 @@ type FirebaseQuestion = Record<string, {
     question: string;
     isHighlighted: boolean;
     isAnswered: boolean;
+    likes: Record<string, {
+        authorId: string;
+    }>;
 }>
 
 
 export function useRoom(id: string) {
     const [questions, setQuestions] = useState<QuestionType[]>([]);
-
+    const {user} = useAuth();
     const [title, setTitle] = useState('');
 
     useEffect(() => { //firebase docs events
@@ -44,6 +50,8 @@ export function useRoom(id: string) {
                     author: value.author,
                     isAnswered: value.isAnswered,
                     isHighlighted: value.isHighlighted,
+                    likeCount: Object.values(value.likes ?? {}).length,
+                    likeId: Object.entries(value.likes ?? {}).find(([key, like]) => like.authorId === user?.id)?.[0]
                 }
             });
 
@@ -51,7 +59,11 @@ export function useRoom(id: string) {
             setQuestions(parsedQuestion);
         });
 
-    }, [id]);
+        return () => {
+            roomRef.off('value');
+        }
+
+    }, [id, user?.id]);
 
     return { questions, title }
 }
